@@ -452,25 +452,25 @@ iosApp/                 # iOS entry point</pre>
           <div class="dl-icon">📊</div>
           <div class="dl-info">
             <div class="dl-name">RND Document (Excel)</div>
-            <div class="dl-desc">All 37 APIs with details — 📁 Downloads/RND.xlsx</div>
+            <div class="dl-desc">All 37 APIs with details</div>
           </div>
-          <a class="dl-link" href="#" onclick="copyText('Open /Users/himanshupatel/Downloads/RND.xlsx'); return false;">📋 Local path</a>
+          <a class="dl-link" href="RND.xlsx">⬇ Download</a>
         </div>
         <div class="download-item">
           <div class="dl-icon">📊</div>
           <div class="dl-info">
             <div class="dl-name">RND Document (Markdown)</div>
-            <div class="dl-desc">Complete API reference — 📁 Downloads/RND.md</div>
+            <div class="dl-desc">Complete API reference</div>
           </div>
-          <a class="dl-link" href="#" onclick="copyText('Open /Users/himanshupatel/Downloads/RND.md'); return false;">📋 Local path</a>
+          <a class="dl-link" href="RND.md">⬇ Download</a>
         </div>
         <div class="download-item">
           <div class="dl-icon">⚡</div>
           <div class="dl-info">
-            <div class="dl-name">System Hub (source)</div>
-            <div class="dl-desc">Full source on GitHub</div>
+            <div class="dl-name">System Hub (this tool)</div>
+            <div class="dl-desc">Full source — single HTML file</div>
           </div>
-          <a class="dl-link" href="https://github.com/innovexnow/MasterDocsInnovexNow" target="_blank">🔗 GitHub</a>
+          <a class="dl-link" href="system-hub.html">⬇ Download</a>
         </div>
       </div>
     </section>
@@ -559,7 +559,7 @@ iosApp/                 # iOS entry point</pre>
 
       <div class="sync-bar" id="syncBar">
         <span class="sync-dot offline" id="syncDot"></span>
-        <span id="syncLabel">Saving to localStorage (Supabase not connected)</span>
+        <span id="syncLabel">Loading data...</span>
       </div>
 
       <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
@@ -567,7 +567,8 @@ iosApp/                 # iOS entry point</pre>
         <button class="btn btn-outline" onclick="exportData()">⬇ Export JSON</button>
         <button class="btn btn-outline" onclick="importData()">⬆ Import JSON</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
-        <button class="btn btn-outline" onclick="syncToSupabase()" id="syncBtn">☁ Sync to Supabase</button>
+        <button class="btn btn-outline" onclick="forceSyncAll()" id="syncBtn">☁ Force Sync All</button>
+        <button class="btn btn-outline" onclick="refreshFromSupabase()">🔄 Refresh from Cloud</button>
       </div>
 
       <div class="board" id="board">
@@ -615,8 +616,8 @@ iosApp/                 # iOS entry point</pre>
           <button class="btn btn-primary" onclick="connectSupabase()">🔌 Connect</button>
           <button class="btn btn-outline" onclick="disconnectSupabase()">⛔ Disconnect</button>
           <button class="btn btn-success" onclick="openSQLEditor()">📋 Open SQL Editor</button>
-          <button class="btn btn-outline" onclick="syncToSupabase()">☁ Push Data to Supabase</button>
-          <button class="btn btn-outline" onclick="loadFromSupabase()">⬇ Load from Supabase</button>
+          <button class="btn btn-outline" onclick="forceSyncAll()">☁ Force Sync All</button>
+          <button class="btn btn-outline" onclick="refreshFromSupabase()">🔄 Refresh from Cloud</button>
         </div>
         <div id="connection-status" style="margin-top:12px;font-size:13px;"></div>
       </div>
@@ -677,7 +678,7 @@ CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH C
           <div class="step-num">4</div>
           <div class="step-content">
             <h4>Push Data</h4>
-            <p style="font-size:13px;color:var(--text2);">Tables ban jaane ke baad "Push Data to Supabase" button se apna saara data (tasks + credentials) cloud mein save ho jayega.</p>
+            <p style="font-size:13px;color:var(--text2);">Tables ban jaane ke baad "Force Sync All" button dabao. Uske baad data automatically sync hota rahega.</p>
           </div>
         </div>
       </div>
@@ -771,19 +772,32 @@ function updateDbStatus(online) {
   label.textContent = online ? 'DB: Supabase ☁' : 'DB: Local 💾';
   syncDot.className = 'sync-dot ' + (online ? 'online' : 'offline');
   syncLabel.textContent = online
-    ? 'Saving to Supabase ☁ (local backup active)'
-    : 'Saving to localStorage 💾';
+    ? 'Live: Auto-saving to Supabase ☁'
+    : 'Local only 💾 — Connect Supabase for cloud sync';
+}
+
+function forceSyncAll() {
+  const config = getSupabaseConfig();
+  if (!config) return setConnStatus('❌ Pehle Connect karo', 'var(--danger)');
+  setConnStatus('⏳ Syncing all data...', 'var(--warning)');
+  data.tasks.forEach(t => syncTask(t));
+  data.customCreds.forEach(c => syncCred(c));
+  setConnStatus('✅ All data synced! ' + data.tasks.length + ' tasks, ' + data.customCreds.length + ' creds', 'var(--success)');
+}
+
+async function refreshFromSupabase() {
+  const ok = await loadFromSupabase();
+  if (ok) {
+    renderBoard(); renderCustomCreds();
+    setConnStatus('✅ Refreshed from Supabase!', 'var(--success)');
+  } else {
+    setConnStatus('❌ Could not load from Supabase. Connect first.', 'var(--danger)');
+  }
 }
 
 function setConnStatus(msg, color) {
   const el = document.getElementById('connection-status');
   el.innerHTML = `<span style="color:${color}">${msg}</span>`;
-}
-
-function initSupabase() {
-  const config = getSupabaseConfig();
-  updateDbStatus(!!config);
-  if (config) setConnStatus('✅ Supabase connected', 'var(--success)');
 }
 
 function openSQLEditor() {
@@ -818,62 +832,10 @@ CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH C
   setConnStatus('✅ SQL copied! Naye tab mein paste (Ctrl+V) karo aur RUN dabao.', 'var(--success)');
 }
 
-async function syncToSupabase() {
-  const config = getSupabaseConfig();
-  if (!config) return setConnStatus('❌ Pehle Connect karo', 'var(--danger)');
-  setConnStatus('⏳ Syncing...', 'var(--warning)');
-  try {
-    for (const task of data.tasks) {
-      await supabaseFetch('tasks', {
-        method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
-        body: JSON.stringify({
-          id: task.id, title: task.title, description: task.desc || '',
-          status: task.status, tags: JSON.stringify(task.tags || []),
-          updated_at: new Date().toISOString()
-        })
-      });
-    }
-    for (const cred of data.customCreds) {
-      await supabaseFetch('credentials', {
-        method: 'POST',
-        body: JSON.stringify({ label: cred.label, value: cred.value })
-      }).catch(() => {});
-    }
-    setConnStatus('✅ Synced ' + data.tasks.length + ' tasks & ' + data.customCreds.length + ' creds!', 'var(--success)');
-  } catch(e) {
-    setConnStatus('❌ Sync failed: ' + e.message, 'var(--danger)');
-  }
-}
 
-async function loadFromSupabase() {
-  const config = getSupabaseConfig();
-  if (!config) return setConnStatus('❌ Pehle Connect karo', 'var(--danger)');
-  setConnStatus('⏳ Loading...', 'var(--warning)');
-  try {
-    const tasksRes = await supabaseFetch('tasks?select=*');
-    const tasksData = await tasksRes.json();
-    if (Array.isArray(tasksData) && tasksData.length) {
-      data.tasks = tasksData.map(t => ({
-        id: t.id, title: t.title, desc: t.description || '',
-        status: t.status || 'todo',
-        tags: typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || [])
-      }));
-    }
-    const credsRes = await supabaseFetch('credentials?select=*');
-    const credsData = await credsRes.json();
-    if (Array.isArray(credsData) && credsData.length) {
-      data.customCreds = credsData.map(c => ({ label: c.label, value: c.value }));
-    }
-    saveData(); renderBoard(); renderCustomCreds();
-    setConnStatus('✅ Loaded ' + data.tasks.length + ' tasks & ' + data.customCreds.length + ' creds!', 'var(--success)');
-  } catch(e) {
-    setConnStatus('❌ Load failed: ' + e.message, 'var(--danger)');
-  }
-}
 
 // ═══════════════════════════════════════════
-// DATA STORE
+// DATA STORE — Supabase first, localStorage backup
 // ═══════════════════════════════════════════
 const STORAGE_KEY = 'restromind_system_hub';
 
@@ -903,26 +865,103 @@ const defaultData = {
   customCreds: []
 };
 
-let data = loadData();
+let data = JSON.parse(JSON.stringify(defaultData));
 let editingTaskId = null;
 
-function loadData() {
+function loadLocalData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return {
-        tasks: parsed.tasks || defaultData.tasks,
-        customCreds: parsed.customCreds || []
-      };
+      data.tasks = parsed.tasks || defaultData.tasks;
+      data.customCreds = parsed.customCreds || [];
+      return true;
     }
   } catch(e) {}
-  return JSON.parse(JSON.stringify(defaultData));
+  return false;
 }
 
-function saveData() {
+function saveLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+
+// ─── Auto-sync to Supabase (fire & forget) ───
+async function syncTask(task) {
+  const config = getSupabaseConfig();
+  if (!config) return;
+  try {
+    await supabaseFetch('tasks', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({
+        id: task.id, title: task.title, description: task.desc || '',
+        status: task.status, tags: JSON.stringify(task.tags || []),
+        updated_at: new Date().toISOString()
+      })
+    });
+  } catch(e) { console.warn('Sync task failed:', e); }
+}
+
+async function deleteTaskFromSB(id) {
+  const config = getSupabaseConfig();
+  if (!config) return;
+  try {
+    await supabaseFetch('tasks?id=eq.' + id, { method: 'DELETE' });
+  } catch(e) { console.warn('Delete task failed:', e); }
+}
+
+async function syncCred(cred) {
+  const config = getSupabaseConfig();
+  if (!config) return;
+  try {
+    await supabaseFetch('credentials', {
+      method: 'POST',
+      body: JSON.stringify({ label: cred.label, value: cred.value })
+    });
+  } catch(e) { console.warn('Sync cred failed:', e); }
+}
+
+async function deleteCredFromSB(label) {
+  const config = getSupabaseConfig();
+  if (!config) return;
+  try {
+    await supabaseFetch('credentials?label=eq.' + encodeURIComponent(label), { method: 'DELETE' });
+  } catch(e) { console.warn('Delete cred failed:', e); }
+}
+
+async function loadFromSupabase() {
+  const config = getSupabaseConfig();
+  if (!config) return false;
+  try {
+    const tasksRes = await supabaseFetch('tasks?select=*&order=created_at.asc');
+    const tasksData = await tasksRes.json();
+    if (Array.isArray(tasksData) && tasksData.length) {
+      data.tasks = tasksData.map(t => ({
+        id: t.id, title: t.title, desc: t.description || '',
+        status: t.status || 'todo',
+        tags: typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || [])
+      }));
+    }
+    const credsRes = await supabaseFetch('credentials?select=*&order=created_at.asc');
+    const credsData = await credsRes.json();
+    if (Array.isArray(credsData) && credsData.length) {
+      data.customCreds = credsData.map(c => ({ label: c.label, value: c.value }));
+    }
+    saveLocal();
+    return true;
+  } catch(e) {
+    console.warn('Supabase load failed, using local:', e);
+    return false;
+  }
+}
+
+// Init: try Supabase first, fallback to local
+(async function initData() {
+  const loaded = await loadFromSupabase();
+  if (!loaded) loadLocalData();
+  renderBoard();
+  renderCustomCreds();
+})();
 
 // ═══════════════════════════════════════════
 // NAVIGATION
@@ -961,7 +1000,8 @@ function addCred() {
   const value = document.getElementById('new-cred-value').value.trim();
   if (!label || !value) return alert('Enter both label and value');
   data.customCreds.push({ label, value });
-  saveData();
+  saveLocal();
+  syncCred({ label, value });
   renderCustomCreds();
   document.getElementById('new-cred-label').value = '';
   document.getElementById('new-cred-value').value = '';
@@ -981,8 +1021,10 @@ function renderCustomCreds() {
 }
 
 function deleteCred(i) {
+  const cred = data.customCreds[i];
   data.customCreds.splice(i, 1);
-  saveData();
+  saveLocal();
+  deleteCredFromSB(cred.label);
   renderCustomCreds();
 }
 
@@ -1116,11 +1158,13 @@ function saveTask() {
   const id = document.getElementById('task-id').value;
   if (id) {
     const t = data.tasks.find(t => t.id === id);
-    if (t) { t.title = title; t.desc = desc; t.status = status; t.tags = tags; }
+    if (t) { t.title = title; t.desc = desc; t.status = status; t.tags = tags; syncTask(t); }
   } else {
-    data.tasks.push({ id: Date.now().toString(), title, desc, status, tags });
+    const newTask = { id: Date.now().toString(), title, desc, status, tags };
+    data.tasks.push(newTask);
+    syncTask(newTask);
   }
-  saveData();
+  saveLocal();
   renderBoard();
   closeModal();
 }
@@ -1128,7 +1172,8 @@ function saveTask() {
 function deleteTask(id) {
   if (!confirm('Delete this task?')) return;
   data.tasks = data.tasks.filter(t => t.id !== id);
-  saveData();
+  deleteTaskFromSB(id);
+  saveLocal();
   renderBoard();
 }
 
@@ -1160,7 +1205,8 @@ document.addEventListener('drop', e => {
   const t = data.tasks.find(t => t.id === id);
   if (t && t.status !== newStatus) {
     t.status = newStatus;
-    saveData();
+    saveLocal();
+    syncTask(t);
     renderBoard();
   }
 });
@@ -1188,10 +1234,14 @@ function handleImport(e) {
     try {
       const imported = JSON.parse(ev.target.result);
       if (imported.tasks) {
-        data = imported;
-        saveData();
+        data.tasks = imported.tasks;
+        data.customCreds = imported.customCreds || [];
+        saveLocal();
         renderBoard();
         renderCustomCreds();
+        // Sync all imported data to Supabase
+        data.tasks.forEach(t => syncTask(t));
+        data.customCreds.forEach(c => syncCred(c));
         alert('Data imported successfully!');
       } else {
         alert('Invalid file format');
@@ -1203,9 +1253,9 @@ function handleImport(e) {
 }
 
 function resetData() {
-  if (!confirm('Reset all data to defaults?')) return;
+  if (!confirm('Reset all data to defaults? This will NOT delete Supabase data.')) return;
   data = JSON.parse(JSON.stringify(defaultData));
-  saveData();
+  saveLocal();
   renderBoard();
   renderCustomCreds();
 }
@@ -1220,7 +1270,8 @@ function copyText(text) {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-initSupabase();
+// Init
+updateDbStatus(!!getSupabaseConfig());
 renderAPIs();
 renderBoard();
 renderCustomCreds();
