@@ -754,7 +754,17 @@ function connectSupabase() {
   }
   localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify({ url, key }));
   updateDbStatus(true);
-  setConnStatus('✅ Connected to Supabase!', 'var(--success)');
+  setConnStatus('✅ Connected to Supabase! Loading data...', 'var(--success)');
+  // Load data from cloud
+  setTimeout(async () => {
+    const ok = await loadFromSupabase();
+    if (ok) {
+      renderBoard(); renderCustomCreds();
+      setConnStatus('✅ Connected! Data loaded from cloud.', 'var(--success)');
+    } else {
+      setConnStatus('✅ Connected! Tables may be empty. Use Force Sync to push local data.', 'var(--warning)');
+    }
+  }, 500);
 }
 
 function disconnectSupabase() {
@@ -1270,11 +1280,21 @@ function copyText(text) {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-// Init
-updateDbStatus(!!getSupabaseConfig());
+// Auto-connect if fields are pre-filled
+(function autoConnect() {
+  const url = document.getElementById('supabase-url');
+  const key = document.getElementById('supabase-key');
+  const config = getSupabaseConfig();
+  if (config) {
+    updateDbStatus(true);
+  } else if (url && key && url.value && key.value) {
+    connectSupabase();
+  } else {
+    updateDbStatus(false);
+  }
+})();
+
 renderAPIs();
-renderBoard();
-renderCustomCreds();
 </script>
 </body>
 </html>
