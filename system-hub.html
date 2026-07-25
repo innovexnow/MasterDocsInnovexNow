@@ -188,6 +188,53 @@
   .sync-dot.online { background: var(--success); }
   .sync-dot.offline { background: var(--danger); }
 
+  .phone-frame {
+    width: 320px; height: 660px; background: #1a1d27; border-radius: 40px;
+    border: 3px solid #2e3348; padding: 12px; position: relative; flex-shrink: 0;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 0 0 2px #2e3348;
+  }
+  .phone-frame .notch {
+    width: 140px; height: 24px; background: #1a1d27; border-radius: 0 0 16px 16px;
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    border: 0 solid #2e3348; border-width: 0 2px 2px 2px;
+  }
+  .phone-frame .notch-dot { width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; }
+  .phone-frame iframe {
+    width: 100%; height: 100%; border: none; border-radius: 28px; background: #fff;
+  }
+  .phone-bar {
+    display: flex; gap: 8px; align-items: center; padding: 8px 0; flex-wrap: wrap;
+  }
+  .phone-bar input {
+    flex: 1; min-width: 180px; padding: 8px 12px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;
+  }
+  .phone-bar button {
+    padding: 8px 16px; background: var(--primary); color: #fff; border: none;
+    border-radius: 8px; cursor: pointer; font-size: 13px;
+  }
+  .phone-bar button:hover { opacity: .85; }
+  .phone-env {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .phone-env .env-btn {
+    padding: 8px 20px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text2); cursor: pointer; font-size: 13px;
+  }
+  .phone-env .env-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .badge-firebase { background: #ff9100; color: #000; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .apk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .apk-item {
+    padding: 20px; background: var(--surface2); border-radius: 12px;
+    border: 1px solid var(--border); text-align: center; cursor: pointer; transition: .2s;
+  }
+  .apk-item:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .apk-item .apk-icon { font-size: 32px; margin-bottom: 8px; }
+  .apk-item .apk-name { font-weight: 600; font-size: 14px; }
+  .apk-item .apk-size { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .simulator-layout { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
+
   @media (max-width: 900px) {
     .sidebar { width: 60px; }
     .sidebar h1 span, .sidebar .nav-text, .sidebar .db-status span { display: none; }
@@ -199,6 +246,8 @@
   @media (max-width: 600px) {
     .board { grid-template-columns: 1fr; }
     .card-grid { grid-template-columns: 1fr; }
+    .simulator-layout { justify-content: center; }
+    .phone-frame { width: 280px; height: 580px; }
   }
 </style>
 </head>
@@ -221,6 +270,7 @@
     <div class="nav-item" data-page="apis"><span class="icon">🔌</span><span class="nav-text">APIs</span></div>
     <div class="nav-item" data-page="progress"><span class="icon">📊</span><span class="nav-text">Progress</span></div>
     <div class="nav-item" data-page="supabase"><span class="icon">⚡</span><span class="nav-text">Supabase</span></div>
+    <div class="nav-item" data-page="apptest"><span class="icon">📲</span><span class="nav-text">App Test</span></div>
   </nav>
 
   <!-- MAIN -->
@@ -684,6 +734,89 @@ CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH C
       </div>
     </section>
 
+    <!-- ═══════ APP TEST ═══════ -->
+    <section class="page" id="page-apptest">
+      <h2 class="page-title">📲 App Test & Distribution</h2>
+      <p class="page-sub">Download APK, test on device, or run in browser simulator</p>
+
+      <div class="notice">
+        <strong>🔥 Firebase App Distribution:</strong>
+        <a href="https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases" target="_blank" style="color:var(--primary)">Open Firebase Console →</a>
+        <span style="margin-left:8px;" class="badge-firebase">Live</span>
+      </div>
+
+      <div class="card">
+        <h3>📥 Download APK</h3>
+        <div class="apk-grid">
+          <div class="apk-item" onclick="downloadAPK('release')">
+            <div class="apk-icon">📦</div>
+            <div class="apk-name">Release APK</div>
+            <div class="apk-size">Production build</div>
+          </div>
+          <div class="apk-item" onclick="downloadAPK('debug')">
+            <div class="apk-icon">🛠️</div>
+            <div class="apk-name">Debug APK</div>
+            <div class="apk-size">Development build</div>
+          </div>
+          <div class="apk-item" onclick="downloadAPK('bundle')">
+            <div class="apk-icon">📦</div>
+            <div class="apk-name">AAB Bundle</div>
+            <div class="apk-size">Play Store upload</div>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin-top:12px;">
+          ⚡ Firebase App Tester install karo: 
+          <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.firebase.apptester" target="_blank" style="color:var(--primary)">Play Store →</a>
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>📱 Live Simulator</h3>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">App ka live preview browser mein hi dekh aur test kar. Device jaisa look feel.</p>
+        <div class="phone-env">
+          <span class="env-btn active" onclick="switchSimEnv(this,'firebase')">🔥 Firebase App Tester</span>
+          <span class="env-btn" onclick="switchSimEnv(this,'webview')">🌐 Web Preview</span>
+          <span class="env-btn" onclick="switchSimEnv(this,'local')">📂 Local File</span>
+        </div>
+        <div class="simulator-layout">
+          <div class="phone-frame" id="phoneFrame">
+            <div class="notch"><div class="notch-dot"></div></div>
+            <iframe id="phoneIframe" src="https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases"></iframe>
+          </div>
+          <div style="flex:1;min-width:260px;">
+            <div class="phone-bar">
+              <input id="simUrl" value="https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases" placeholder="URL">
+              <button onclick="loadSimUrl()">⟳ Load</button>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="document.getElementById('phoneIframe').contentWindow.location.reload()">🔄 Refresh</button>
+              <button class="btn btn-outline" onclick="document.getElementById('phoneFrame').requestFullscreen()">⛶ Fullscreen</button>
+            </div>
+            <div style="margin-top:16px;background:var(--surface2);padding:16px;border-radius:12px;border:1px solid var(--border);">
+              <h4 style="font-size:14px;margin-bottom:8px;">📋 Test Instructions</h4>
+              <ol style="font-size:13px;color:var(--text2);padding-left:20px;line-height:1.8;">
+                <li><strong>Phone pe:</strong> Firebase App Tester install karo Play Store se</li>
+                <li><strong>Invite:</strong> Apna Gmail daalo Firebase Console me (tester invite aayega)</li>
+                <li><strong>Download:</strong> App Tester me app dikhega → Install karo</li>
+                <li><strong>QR:</strong> Neeche QR code scan karo same page khul jayega phone me</li>
+                <li><strong>Simulator:</strong> Upar phone frame me koi bhi URL load kar sakte ho</li>
+                <li><strong>Local file:</strong> <code style="background:#000;padding:2px 6px;border-radius:4px;">file:///Users/himanshupatel/Downloads/system-hub.html</code></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="text-align:center;">
+        <h3>📱 Scan to Download</h3>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Phone se scan karo — Firebase App Distribution page khulega</p>
+        <div id="qrcode" style="display:inline-block;background:#fff;padding:16px;border-radius:12px;"></div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text2);">
+          Local URL: <code style="background:#000;padding:2px 6px;border-radius:4px;">file:///Users/himanshupatel/Downloads/system-hub.html</code>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -989,20 +1122,10 @@ document.querySelectorAll('.nav-item').forEach(el => {
 // CREDENTIALS
 // ═══════════════════════════════════════════
 function toggleCred(el) {
-  const prev = el.previousElementSibling;
-  const val = prev.querySelector('.cred-value');
-  if (val && val.classList.contains('hidden-text')) {
-    val.classList.toggle('revealed');
-    el.textContent = val.classList.contains('revealed') ? '🙈 Hide' : '👁️ Show';
-  } else if (val) {
-    if (val.style.filter === 'blur(6px)') {
-      val.style.filter = 'none';
-      el.textContent = '🙈 Hide';
-    } else {
-      val.style.filter = 'blur(6px)';
-      el.textContent = '👁️ Show';
-    }
-  }
+  const val = el.closest('.cred-item').querySelector('.cred-value');
+  if (!val) return;
+  val.classList.toggle('revealed');
+  el.textContent = val.classList.contains('revealed') ? '🙈 Hide' : '👁️ Show';
 }
 
 function addCred() {
@@ -1269,6 +1392,55 @@ function resetData() {
   renderBoard();
   renderCustomCreds();
 }
+
+// ═══════════════════════════════════════════
+// APP TEST / DISTRIBUTION
+// ═══════════════════════════════════════════
+function downloadAPK(type) {
+  const urls = {
+    release: 'https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases',
+    debug: 'https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases',
+    bundle: 'https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases',
+  };
+  const labels = { release: 'Release APK', debug: 'Debug APK', bundle: 'AAB Bundle' };
+  if (confirm(`Firebase Console kholna hai? (${labels[type]})\n\nWahan se latest build download kar sakte ho.`)) {
+    window.open(urls[type], '_blank');
+  }
+}
+function switchSimEnv(btn, mode) {
+  document.querySelectorAll('.phone-env .env-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const iframe = document.getElementById('phoneIframe');
+  const input = document.getElementById('simUrl');
+  const urls = {
+    firebase: 'https://console.firebase.google.com/project/restromindadminapp/appdistribution/app/android:org.restromind.admin/releases',
+    webview: 'about:blank',
+    local: 'about:blank',
+  };
+  if (mode === 'webview') {
+    input.value = 'https://restromind-admin-web.vercel.app';
+    iframe.src = 'https://restromind-admin-web.vercel.app';
+  } else if (mode === 'local') {
+    input.value = 'file:///Users/himanshupatel/Downloads/system-hub.html';
+    iframe.src = 'about:blank';
+  } else {
+    input.value = urls.firebase;
+    iframe.src = urls.firebase;
+  }
+}
+function loadSimUrl() {
+  const url = document.getElementById('simUrl').value.trim();
+  if (url) document.getElementById('phoneIframe').src = url;
+}
+
+// Generate QR code on page load
+(function genQR() {
+  const url = encodeURIComponent(window.location.href);
+  const qr = document.getElementById('qrcode');
+  if (qr) {
+    qr.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${url}" alt="QR Code" style="border-radius:8px;">`;
+  }
+})();
 
 // ═══════════════════════════════════════════
 // UTILITY
