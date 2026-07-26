@@ -1455,8 +1455,9 @@ async function handleLogin() {
     const session = { username: u.username, role: u.role, access: typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []) };
     localStorage.setItem('session', JSON.stringify(session));
     applySession(session);
+    renderUserList();
     msg.textContent = '✅ Logged in!'; msg.className = 'login-msg success';
-    setTimeout(() => document.getElementById('loginOverlay').classList.add('hidden'), 300);
+    setTimeout(() => document.getElementById('loginOverlay').classList.add('hidden'), 200);
   } catch(e) {
     msg.textContent = '❌ Error: ' + e.message; msg.className = 'login-msg error';
   }
@@ -1493,36 +1494,52 @@ function applySession(session) {
   }
 }
 
-(async function initAuth() {
-  await ensureSuperAdmin();
+let _authCheckDone = false;
+
+(function initAuth() {
   renderAccessCheckboxes();
   const raw = localStorage.getItem('session');
+  const overlay = document.getElementById('loginOverlay');
+  const msg = document.getElementById('loginMsg');
+
   if (raw) {
     try {
       const session = JSON.parse(raw);
-      const config = getSupabaseConfig();
-      if (config) {
-        const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(session.username)}&select=*`);
-        const users = await res.json();
-        if (Array.isArray(users) && users.length > 0) {
-          const u = users[0];
-          session.access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
-          session.role = u.role;
-          localStorage.setItem('session', JSON.stringify(session));
-          applySession(session);
-          document.getElementById('loginOverlay').classList.add('hidden');
-          return;
+      applySession(session);
+      overlay.classList.add('hidden');
+      // Validate session in background + load users
+      (async () => {
+        await ensureSuperAdmin();
+        const config = getSupabaseConfig();
+        if (config) {
+          try {
+            const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(session.username)}&select=*`);
+            const users = await res.json();
+            if (Array.isArray(users) && users.length > 0) {
+              const u = users[0];
+              session.access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
+              session.role = u.role;
+              localStorage.setItem('session', JSON.stringify(session));
+              applySession(session);
+            }
+          } catch(e) { /* ignore */ }
         }
-      }
+        renderUserList();
+      })();
+      return;
     } catch(e) { localStorage.removeItem('session'); }
   }
-  // Show login
-  if (getSupabaseConfig()) {
-    document.getElementById('loginMsg').textContent = 'Enter credentials to login';
-  } else {
-    document.getElementById('loginMsg').textContent = '⚠️ Connect Supabase first (⚡tab)';
-    document.getElementById('loginMsg').className = 'login-msg error';
-  }
+
+  // No valid session — show login
+  (async () => {
+    await ensureSuperAdmin();
+    if (getSupabaseConfig()) {
+      msg.textContent = 'Enter credentials to login';
+    } else {
+      msg.textContent = '⚠️ Connect Supabase first (⚡tab)';
+      msg.className = 'login-msg error';
+    }
+  })();
 })();
 
 function renderAccessCheckboxes() {
