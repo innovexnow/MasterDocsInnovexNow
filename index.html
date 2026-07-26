@@ -210,6 +210,29 @@
   .login-msg.error { color: var(--danger); }
   .login-msg.success { color: var(--success); }
 
+  .rm-module { margin-bottom: 20px; }
+  .rm-module h3 { font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .rm-bar { height: 6px; border-radius: 3px; background: var(--surface2); margin-bottom: 12px; overflow: hidden; }
+  .rm-bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .rm-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: .2s; font-size: 13px; margin-bottom: 4px; }
+  .rm-item:hover { background: var(--surface2); }
+  .rm-item .rm-status { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; }
+  .rm-item .rm-status.done { background: var(--success); border-color: var(--success); }
+  .rm-item .rm-status.done::after { content: '✓'; color: #fff; font-weight: bold; }
+  .rm-item .rm-status.in-progress { border-color: var(--warning); }
+  .rm-item .rm-status.in-progress::after { content: '◉'; color: var(--warning); }
+  .rm-item .rm-status.pending { border-color: var(--border); }
+  .rm-item .rm-title { flex: 1; }
+  .rm-item .rm-title.done-text { text-decoration: line-through; opacity: .5; }
+  .rm-item .rm-badge { font-size: 10px; padding: 1px 8px; border-radius: 8px; background: var(--surface2); color: var(--text2); }
+  .rm-stat-card { background: var(--surface2); border-radius: 10px; padding: 16px 20px; border: 1px solid var(--border); flex: 1; min-width: 120px; text-align: center; }
+  .rm-stat-card .num { font-size: 28px; font-weight: 700; }
+  .rm-stat-card .label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .rm-stat-card.green .num { color: var(--success); }
+  .rm-stat-card.yellow .num { color: var(--warning); }
+  .rm-stat-card.gray .num { color: var(--text2); }
+  .rm-stat-card.blue .num { color: var(--info); }
+
   .user-row {
     display: flex; align-items: center; gap: 12px; padding: 12px 16px;
     background: var(--surface2); border-radius: 8px; border: 1px solid var(--border);
@@ -279,6 +302,7 @@
     <div class="nav-item" data-page="backend"><span class="icon">⚙️</span><span class="nav-text">Backend</span></div>
     <div class="nav-item" data-page="apis"><span class="icon">🔌</span><span class="nav-text">APIs</span></div>
     <div class="nav-item" data-page="progress"><span class="icon">📊</span><span class="nav-text">Progress</span></div>
+    <div class="nav-item" data-page="roadmap"><span class="icon">🗺️</span><span class="nav-text">App Roadmap</span></div>
     <div class="nav-item" data-page="supabase"><span class="icon">⚡</span><span class="nav-text">Supabase</span></div>
     <div class="nav-item" id="nav-admin" data-page="admin" style="display:none;"><span class="icon">👑</span><span class="nav-text">Admin</span></div>
     <div class="sidebar-footer">
@@ -764,6 +788,16 @@ CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- ═══════ APP ROADMAP ═══════ -->
+    <section class="page" id="page-roadmap">
+      <h2 class="page-title">🗺️ Admin App Roadmap</h2>
+      <p class="page-sub" contenteditable="true">Track Admin App features — tap item to toggle status</p>
+
+      <div id="roadmap-stats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;"></div>
+
+      <div id="roadmap-container"></div>
     </section>
 
     <!-- ═══════ ADMIN PANEL ═══════ -->
@@ -1651,6 +1685,201 @@ async function deleteUser(username) {
     document.getElementById('admin-msg').textContent = `🗑️ User "${username}" deleted`;
   } catch(e) { alert('Error: ' + e.message); }
 }
+
+// ═══════════════════════════════════════════
+// APP ROADMAP
+// ═══════════════════════════════════════════
+const ROADMAP_KEY = 'rm-tracker';
+const ROADMAP_DATA = [
+  {
+    name: '🔐 Auth Flow (Pre-login)', icon: '🔐',
+    items: [
+      { id: 'splash', title: 'Splash Screen — auto-login check, 2-sec splash' },
+      { id: 'onboarding', title: 'Onboarding Screen — 3-page intro (manage restaurant, control menu, track prices)' },
+      { id: 'signup', title: 'Signup / Login Screen — email + password login, forgot password dialog' },
+      { id: 'register', title: 'Register Screen — new restaurant registration (name, owner, email, phone, password, location, logo)' },
+    ]
+  },
+  {
+    name: '📱 Dashboard Tab', icon: '📱',
+    items: [
+      { id: 'dash-header', title: 'Header — user name, profile logo, notifications' },
+      { id: 'dash-overview', title: 'Overview section — total dishes, active menu, categories, updates' },
+      { id: 'dash-recent', title: 'Recently updated items list' },
+      { id: 'dash-fab', title: 'Quick add dish FAB' },
+    ]
+  },
+  {
+    name: '🍽️ Menu Tab', icon: '🍽️',
+    items: [
+      { id: 'menu-mgmt', title: 'Menu management screen' },
+      { id: 'menu-categories', title: 'Category filter chips (All, category list)' },
+      { id: 'menu-search', title: 'Search bar with debounce' },
+      { id: 'menu-pagination', title: 'Paginated menu items list' },
+      { id: 'menu-crud', title: 'Add / Edit / Delete menu items' },
+      { id: 'menu-nav', title: 'Category items navigation' },
+    ]
+  },
+  {
+    name: '📊 Stats Tab', icon: '📊',
+    items: [
+      { id: 'stats-revenue', title: 'Revenue statistics with date range filter' },
+      { id: 'stats-customers', title: 'Customer statistics' },
+      { id: 'stats-goals', title: 'Daily goals progress' },
+      { id: 'stats-peak', title: 'Peak hours data' },
+      { id: 'stats-category', title: 'Category revenue breakdown' },
+    ]
+  },
+  {
+    name: '📂 Categories Tab', icon: '📂',
+    items: [
+      { id: 'cat-list', title: 'Category list with search' },
+      { id: 'cat-crud', title: 'Create / Edit / Delete categories' },
+      { id: 'cat-icon', title: 'Category icon upload' },
+      { id: 'cat-nav', title: 'Navigate to category items' },
+    ]
+  },
+  {
+    name: '⚙️ Settings Tab', icon: '⚙️',
+    items: [
+      { id: 'settings-profile', title: 'User profile (name, email, restaurant name, logo)' },
+      { id: 'settings-edit', title: 'Edit profile' },
+      { id: 'settings-theme', title: 'Dark mode toggle' },
+      { id: 'settings-notifications', title: 'Notification settings' },
+      { id: 'settings-logout', title: 'Logout' },
+    ]
+  },
+  {
+    name: '📋 Sub-screens', icon: '📋',
+    items: [
+      { id: 'sub-adddish', title: 'Add Dish Screen — name, category, price, image, dietary, description, discount' },
+      { id: 'sub-editdish', title: 'Edit Dish Screen — update existing, same form pre-filled' },
+      { id: 'sub-categoryitems', title: 'Category Items Screen — items in category with search & pagination' },
+      { id: 'sub-orders', title: 'Orders Screen — list with accept/mark-ready actions' },
+      { id: 'sub-revenuebycat', title: 'Revenue By Category Screen — category-wise breakdown' },
+      { id: 'sub-resetpass', title: 'Reset Password Dialog — forgot password flow' },
+    ]
+  },
+  {
+    name: '🔔 Notifications', icon: '🔔',
+    items: [
+      { id: 'notif', title: 'Push notifications for Admin App' },
+    ]
+  },
+  {
+    name: '🚀 Future Plans', icon: '🚀',
+    items: [
+      { id: 'future-1', title: 'iOS App Store Release' },
+      { id: 'future-2', title: 'Android Play Store Release' },
+      { id: 'future-3', title: 'Performance Optimization (API response, caching, lazy loading)' },
+      { id: 'future-4', title: 'Offline mode with local DB sync' },
+      { id: 'future-5', title: 'Multi-language support' },
+      { id: 'future-6', title: 'AI-based dish recommendations' },
+    ]
+  }
+];
+
+function loadRoadmapState() {
+  try {
+    const raw = localStorage.getItem(ROADMAP_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  // Init with defaults: splash+dash-header+settings-logout done, some in-progress
+  const defaults = {};
+  ROADMAP_DATA.forEach(m => m.items.forEach(i => { defaults[i.id] = 'pending'; }));
+  defaults['splash'] = 'done';
+  defaults['signup'] = 'done';
+  defaults['register'] = 'done';
+  defaults['dash-header'] = 'done';
+  defaults['dash-overview'] = 'done';
+  defaults['menu-mgmt'] = 'done';
+  defaults['menu-crud'] = 'done';
+  defaults['menu-pagination'] = 'done';
+  defaults['cat-list'] = 'done';
+  defaults['cat-crud'] = 'done';
+  defaults['cat-nav'] = 'done';
+  defaults['settings-profile'] = 'done';
+  defaults['settings-edit'] = 'done';
+  defaults['settings-theme'] = 'done';
+  defaults['settings-notifications'] = 'done';
+  defaults['settings-logout'] = 'done';
+  defaults['notif'] = 'in-progress';
+  defaults['sub-orders'] = 'in-progress';
+  defaults['sub-adddish'] = 'in-progress';
+  defaults['sub-editdish'] = 'in-progress';
+  defaults['sub-categoryitems'] = 'done';
+  defaults['sub-revenuebycat'] = 'done';
+  defaults['sub-resetpass'] = 'done';
+  defaults['dash-recent'] = 'done';
+  defaults['dash-fab'] = 'in-progress';
+  defaults['menu-search'] = 'done';
+  defaults['menu-categories'] = 'done';
+  defaults['menu-nav'] = 'done';
+  defaults['stats-revenue'] = 'in-progress';
+  defaults['stats-customers'] = 'in-progress';
+  defaults['stats-goals'] = 'pending';
+  defaults['stats-peak'] = 'pending';
+  defaults['stats-category'] = 'pending';
+  defaults['cat-icon'] = 'pending';
+  defaults['onboarding'] = 'done';
+  return defaults;
+}
+
+let roadmapState = loadRoadmapState();
+
+function saveRoadmapState() {
+  localStorage.setItem(ROADMAP_KEY, JSON.stringify(roadmapState));
+}
+
+function toggleRoadmapItem(id) {
+  const cycle = { 'pending': 'in-progress', 'in-progress': 'done', 'done': 'pending' };
+  roadmapState[id] = cycle[roadmapState[id]] || 'pending';
+  saveRoadmapState();
+  renderRoadmap();
+}
+
+function renderRoadmap() {
+  const container = document.getElementById('roadmap-container');
+  if (!container) return;
+  let total = 0, done = 0, inProg = 0;
+  ROADMAP_DATA.forEach(m => m.items.forEach(i => {
+    total++;
+    const s = roadmapState[i.id] || 'pending';
+    if (s === 'done') done++;
+    else if (s === 'in-progress') inProg++;
+  }));
+  const pct = total ? Math.round(done / total * 100) : 0;
+
+  // Stats
+  document.getElementById('roadmap-stats').innerHTML = `
+    <div class="rm-stat-card green"><div class="num">${done}</div><div class="label">✅ Done</div></div>
+    <div class="rm-stat-card yellow"><div class="num">${inProg}</div><div class="label">🔧 In Progress</div></div>
+    <div class="rm-stat-card gray"><div class="num">${total - done - inProg}</div><div class="label">⏳ Pending</div></div>
+    <div class="rm-stat-card blue"><div class="num">${pct}%</div><div class="label">📈 Complete</div></div>
+  `;
+
+  // Modules
+  container.innerHTML = ROADMAP_DATA.map(mod => {
+    const modItems = mod.items.map(i => {
+      const s = roadmapState[i.id] || 'pending';
+      return `<div class="rm-item" onclick="toggleRoadmapItem('${i.id}')">
+        <div class="rm-status ${s}"></div>
+        <div class="rm-title ${s === 'done' ? 'done-text' : ''}">${i.title}</div>
+        <span class="rm-badge">${s === 'done' ? '✅' : s === 'in-progress' ? '🔧' : '⏳'}</span>
+      </div>`;
+    }).join('');
+    const modDone = mod.items.filter(i => (roadmapState[i.id] || 'pending') === 'done').length;
+    const modPct = Math.round(modDone / mod.items.length * 100);
+    const barColor = modPct === 100 ? 'var(--success)' : modPct > 50 ? 'var(--warning)' : 'var(--info)';
+    return `<div class="card rm-module">
+      <h3>${mod.name} <span style="font-size:13px;color:var(--text2);font-weight:400;">${modDone}/${mod.items.length} (${modPct}%)</span></h3>
+      <div class="rm-bar"><div class="rm-bar-fill" style="width:${modPct}%;background:${barColor};"></div></div>
+      ${modItems}
+    </div>`;
+  }).join('');
+}
+
+renderRoadmap();
 
 // ═══════════════════════════════════════════
 // UTILITY
