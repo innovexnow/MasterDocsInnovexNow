@@ -188,6 +188,51 @@
   .sync-dot.online { background: var(--success); }
   .sync-dot.offline { background: var(--danger); }
 
+  .login-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg); display: flex; align-items: center; justify-content: center;
+  }
+  .login-overlay.hidden { display: none; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 40px; width: 380px; max-width: 90vw; box-shadow: var(--shadow);
+  }
+  .login-box h2 { text-align: center; margin-bottom: 4px; font-size: 22px; }
+  .login-box p { text-align: center; color: var(--text2); font-size: 13px; margin-bottom: 24px; }
+  .login-box label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+  .login-box input {
+    width: 100%; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; margin-bottom: 16px;
+  }
+  .login-box input:focus { border-color: var(--primary); outline: none; }
+  .login-box .btn { width: 100%; padding: 12px; font-size: 15px; }
+  .login-msg { text-align: center; font-size: 13px; margin-top: 12px; min-height: 20px; }
+  .login-msg.error { color: var(--danger); }
+  .login-msg.success { color: var(--success); }
+
+  .user-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    background: var(--surface2); border-radius: 8px; border: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .user-row .user-info { flex: 1; }
+  .user-row .user-info .user-name { font-weight: 600; font-size: 14px; }
+  .user-row .user-info .user-meta { font-size: 12px; color: var(--text2); }
+  .user-row .badge-admin { background: var(--primary); color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 11px; }
+  .user-row .badge-user { background: var(--info); color: #000; padding: 2px 10px; border-radius: 12px; font-size: 11px; }
+  .access-chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0; }
+  .access-chips span {
+    font-size: 10px; padding: 2px 8px; border-radius: 8px; background: var(--surface);
+    border: 1px solid var(--border); color: var(--text2);
+  }
+  .sidebar-footer {
+    margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text2);
+  }
+  .sidebar-footer .logout-btn {
+    color: var(--danger); cursor: pointer; text-decoration: underline; font-size: 12px;
+  }
+
   @media (max-width: 900px) {
     .sidebar { width: 60px; }
     .sidebar h1 span, .sidebar .nav-text, .sidebar .db-status span { display: none; }
@@ -203,6 +248,20 @@
 </style>
 </head>
 <body>
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>⬡ System Hub</h2>
+    <p>Login to access the dashboard</p>
+    <label>Username</label>
+    <input id="login-user" placeholder="Enter username" autocomplete="off">
+    <label>Password</label>
+    <input id="login-pass" type="password" placeholder="Enter password">
+    <button class="btn btn-primary" onclick="handleLogin()">🔑 Login</button>
+    <div class="login-msg" id="loginMsg"></div>
+  </div>
+</div>
+
 <div class="app">
   <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebar">
@@ -221,6 +280,11 @@
     <div class="nav-item" data-page="apis"><span class="icon">🔌</span><span class="nav-text">APIs</span></div>
     <div class="nav-item" data-page="progress"><span class="icon">📊</span><span class="nav-text">Progress</span></div>
     <div class="nav-item" data-page="supabase"><span class="icon">⚡</span><span class="nav-text">Supabase</span></div>
+    <div class="nav-item" id="nav-admin" data-page="admin" style="display:none;"><span class="icon">👑</span><span class="nav-text">Admin</span></div>
+    <div class="sidebar-footer">
+      <span id="sidebarUser"></span>
+      · <span class="logout-btn" onclick="handleLogout()">Logout</span>
+    </div>
   </nav>
 
   <!-- MAIN -->
@@ -562,39 +626,6 @@ iosApp/                 # iOS entry point</pre>
         <span id="syncLabel">Loading data...</span>
       </div>
 
-      <div class="card" style="margin-bottom:16px;">
-        <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
-          <span>🔗 Jira Integration</span>
-          <span style="font-size:11px;color:var(--text2);margin-left:auto;" id="jiraStatus">Not connected</span>
-        </div>
-        <div class="accordion-body" style="padding-top:16px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Jira Domain</label>
-              <input id="jira-domain" value="" placeholder="your-domain.atlassian.net" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            </div>
-            <div>
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Project Key</label>
-              <input id="jira-project" value="" placeholder="e.g. PROJ" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            </div>
-            <div>
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Email (Atlassian account)</label>
-              <input id="jira-email" value="" placeholder="you@company.com" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            </div>
-            <div>
-              <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">API Token</label>
-              <input id="jira-token" value="" type="password" placeholder="Create at id.atlassian.com/manage/api-tokens" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            </div>
-          </div>
-          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="btn btn-primary" onclick="saveJiraConfig()">💾 Save Config</button>
-            <button class="btn btn-success" onclick="fetchJiraIssues()" id="jiraFetchBtn">🔄 Fetch from Jira</button>
-            <button class="btn btn-outline" onclick="clearJiraTasks()">🗑️ Remove Jira Tasks</button>
-          </div>
-          <div id="jira-status-msg" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
-        </div>
-      </div>
-
       <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
         <button class="btn btn-primary" onclick="openAddTask()">+ Add Task</button>
         <button class="btn btn-outline" onclick="exportData()">⬇ Export JSON</button>
@@ -676,11 +707,22 @@ CREATE TABLE IF NOT EXISTS public.credentials (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  access JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Row Level Security (allow anon access)
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow anon all" ON public.tasks FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH CHECK (true);</div>
+CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);</div>
         <button class="btn btn-outline" style="margin-top:10px;" onclick="copyText(document.getElementById('sqlSchema').textContent)">📋 Copy SQL</button>
       </div>
 
@@ -704,16 +746,54 @@ CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH C
           <div class="step-num">3</div>
           <div class="step-content">
             <h4>Create Tables</h4>
-            <p style="font-size:13px;color:var(--text2);">"Open SQL Editor" button dabao — SQL copy ho jayega aur Supabase SQL Editor khul jayega. Wahan <strong>paste (Ctrl+V)</strong> karo aur <strong>RUN</strong> dabao.</p>
+            <p style="font-size:13px;color:var(--text2);">"Open SQL Editor" button dabao — SQL copy ho jayega aur Supabase SQL Editor khul jayega. Wahan <strong>paste (Ctrl+V)</strong> karo aur <strong>RUN</strong> dabao. (Ab <strong>users</strong> table bhi add ho gaya hai login ke liye)</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">4</div>
           <div class="step-content">
+            <h4>Login & Manage Users</h4>
+            <p style="font-size:13px;color:var(--text2);">Page refresh karo → login screen dikhegi. Default: <strong>admin / admin123</strong> (Super Admin). Admin panel mein jaake naye users banao aur access do.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
             <h4>Push Data</h4>
             <p style="font-size:13px;color:var(--text2);">Tables ban jaane ke baad "Force Sync All" button dabao. Uske baad data automatically sync hota rahega.</p>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ═══════ ADMIN PANEL ═══════ -->
+    <section class="page" id="page-admin">
+      <h2 class="page-title">👑 Admin Panel</h2>
+      <p class="page-sub">Manage users and access permissions</p>
+
+      <div class="card">
+        <h3>➕ Create User</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Username</label>
+            <input id="new-user-name" placeholder="e.g. john" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          </div>
+          <div>
+            <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;">Password</label>
+            <input id="new-user-pass" type="password" placeholder="Set password" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:6px;">Grant Access To:</label>
+          <div id="access-checkboxes" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
+        <button class="btn btn-primary" onclick="createUser()" style="margin-top:14px;">👤 Create User</button>
+        <div id="admin-msg" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
+      </div>
+
+      <div class="card">
+        <h3>👥 Users</h3>
+        <div id="user-list"></div>
       </div>
     </section>
 
@@ -862,10 +942,21 @@ CREATE TABLE IF NOT EXISTS public.credentials (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  access JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow anon all" ON public.tasks FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);`;
   
   const ta = document.createElement('textarea');
   ta.value = sql; ta.style.position = 'fixed'; ta.style.opacity = '0';
@@ -1294,144 +1385,190 @@ function resetData() {
 }
 
 // ═══════════════════════════════════════════
-// JIRA INTEGRATION
+// AUTH SYSTEM
 // ═══════════════════════════════════════════
-function saveJiraConfig() {
-  const domain = document.getElementById('jira-domain').value.trim();
-  const project = document.getElementById('jira-project').value.trim().toUpperCase();
-  const email = document.getElementById('jira-email').value.trim();
-  const token = document.getElementById('jira-token').value.trim();
-  if (!domain || !project || !email || !token) {
-    return alert('All fields required');
-  }
-  const config = { domain, project, email, token };
-  localStorage.setItem('jira-config', JSON.stringify(config));
-  document.getElementById('jiraStatus').textContent = `✅ ${project}`;
-  document.getElementById('jira-status-msg').innerHTML = '✅ Config saved! Now click <strong>Fetch from Jira</strong>.';
+const ALL_PAGES = ['architecture','design','credentials','access','downloads','frontend','backend','apis','progress','supabase'];
+
+function getUsersFromSB() {
+  const config = getSupabaseConfig();
+  if (!config) return null;
+  return supabaseFetch('users?select=*').then(r => r.json()).catch(() => null);
 }
 
-function loadJiraConfig() {
+async function ensureSuperAdmin() {
+  const config = getSupabaseConfig();
+  if (!config) return;
   try {
-    const raw = localStorage.getItem('jira-config');
-    if (!raw) return;
-    const c = JSON.parse(raw);
-    document.getElementById('jira-domain').value = c.domain || '';
-    document.getElementById('jira-project').value = c.project || '';
-    document.getElementById('jira-email').value = c.email || '';
-    document.getElementById('jira-token').value = c.token || '';
-    document.getElementById('jiraStatus').textContent = `🔗 ${c.project || 'Not connected'}`;
-    return c;
-  } catch(e) { return null; }
+    const res = await supabaseFetch('users?select=username&role=eq.super-admin');
+    const users = await res.json();
+    if (!Array.isArray(users) || users.length === 0) {
+      await supabaseFetch('users', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+          username: 'admin', password: 'admin123',
+          role: 'super-admin', access: JSON.stringify(ALL_PAGES)
+        })
+      });
+      console.log('✅ Super admin created: admin / admin123');
+    }
+  } catch(e) { console.warn('Auth init:', e); }
 }
 
-const JIRA_STATUS_MAP = {
-  'to do': 'todo', 'todo': 'todo', 'open': 'todo', 'backlog': 'todo', 'selected for development': 'todo',
-  'in progress': 'in-progress', 'in progresss': 'in-progress', 'in review': 'in-progress',
-  'under review': 'review', 'in review': 'review', 'review': 'review', 'qa': 'review',
-  'done': 'done', 'closed': 'done', 'resolved': 'done', 'completed': 'done', 'canceled': 'done', 'cancelled': 'done'
-};
-
-function mapJiraStatus(jiraStatus) {
-  const s = (jiraStatus || '').toLowerCase().trim();
-  return JIRA_STATUS_MAP[s] || 'todo';
-}
-
-async function fetchJiraIssues() {
-  const raw = localStorage.getItem('jira-config');
-  if (!raw) return alert('Pehle Jira config save karo');
-  const config = JSON.parse(raw);
-  const btn = document.getElementById('jiraFetchBtn');
-  const msg = document.getElementById('jira-status-msg');
-  btn.disabled = true;
-  btn.textContent = '⏳ Fetching...';
-  msg.innerHTML = 'Fetching issues from Jira...';
+async function handleLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const msg = document.getElementById('loginMsg');
+  if (!user || !pass) { msg.textContent = 'Enter username and password'; msg.className = 'login-msg error'; return; }
+  msg.textContent = 'Logging in...'; msg.className = 'login-msg';
 
   try {
-    const auth = btoa(`${config.email}:${config.token}`);
-    const jql = encodeURIComponent(`project=${config.project} ORDER BY created DESC`);
-    const res = await fetch(`https://${config.domain}/rest/api/3/search?jql=${jql}&maxResults=100`, {
-      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' }
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`HTTP ${res.status}: ${err}`);
+    const config = getSupabaseConfig();
+    if (!config) { msg.textContent = '❌ Supabase not connected. Connect first.'; msg.className = 'login-msg error'; return; }
+    const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(user)}&select=*`);
+    const users = await res.json();
+    if (!Array.isArray(users) || users.length === 0) {
+      msg.textContent = '❌ User not found'; msg.className = 'login-msg error'; return;
     }
-    const json = await res.json();
-    const issues = json.issues || [];
-    if (!issues.length) {
-      msg.innerHTML = '⚠️ No issues found in this project.';
-      btn.disabled = false;
-      btn.textContent = '🔄 Fetch from Jira';
-      return;
+    const u = users[0];
+    if (u.password !== pass) {
+      msg.textContent = '❌ Wrong password'; msg.className = 'login-msg error'; return;
     }
-
-    let added = 0, updated = 0;
-    issues.forEach(issue => {
-      const key = issue.key;
-      const fields = issue.fields || {};
-      const summary = fields.summary || 'No title';
-      const desc = fields.description || '';
-      const jiraStatus = (fields.status || {}).name || 'To Do';
-      const status = mapJiraStatus(jiraStatus);
-      const labels = (fields.labels || []);
-      const existing = data.tasks.find(t => t.id === key);
-      const task = {
-        id: key, title: `[${key}] ${summary}`,
-        desc: desc.content ? extractJiraDesc(desc) : (typeof desc === 'string' ? desc : ''),
-        status: status,
-        tags: ['jira', ...labels.slice(0, 3)]
-      };
-      if (existing) {
-        Object.assign(existing, task);
-        updated++;
-      } else {
-        data.tasks.push(task);
-        added++;
-      }
-    });
-
-    saveLocal();
-    renderBoard();
-    msg.innerHTML = `✅ Fetched ${issues.length} issues. Added ${added}, updated ${updated}.`;
-    document.getElementById('jiraStatus').textContent = `✅ ${config.project} (${issues.length})`;
+    const session = { username: u.username, role: u.role, access: typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []) };
+    localStorage.setItem('session', JSON.stringify(session));
+    applySession(session);
+    msg.textContent = '✅ Logged in!'; msg.className = 'login-msg success';
+    setTimeout(() => document.getElementById('loginOverlay').classList.add('hidden'), 300);
   } catch(e) {
-    msg.innerHTML = `❌ Error: ${e.message}`;
+    msg.textContent = '❌ Error: ' + e.message; msg.className = 'login-msg error';
   }
-  btn.disabled = false;
-  btn.textContent = '🔄 Fetch from Jira';
 }
 
-function extractJiraDesc(desc) {
-  try {
-    if (!desc || !desc.content) return '';
-    return desc.content.map(b => {
-      if (b.type === 'paragraph' && b.content) {
-        return b.content.map(c => c.text || '').join('');
+function handleLogout() {
+  localStorage.removeItem('session');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(n => n.style.display = '');
+  document.getElementById('nav-admin').style.display = 'none';
+  document.getElementById('sidebarUser').textContent = '';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('loginMsg').textContent = '';
+}
+
+function applySession(session) {
+  document.getElementById('sidebarUser').textContent = session.username + (session.role === 'super-admin' ? ' 👑' : '');
+  if (session.role === 'super-admin') {
+    document.querySelectorAll('.nav-item').forEach(n => n.style.display = '');
+    document.getElementById('nav-admin').style.display = '';
+  } else {
+    document.querySelectorAll('.nav-item').forEach(n => {
+      const page = n.dataset.page;
+      if (!page || page === 'admin') { n.style.display = 'none'; return; }
+      n.style.display = session.access.includes(page) ? '' : 'none';
+    });
+    // Switch to first allowed page if current is restricted
+    const active = document.querySelector('.nav-item.active');
+    if (active && active.dataset.page && !session.access.includes(active.dataset.page)) {
+      const firstAllowed = document.querySelector('.nav-item[style*="display:"]');
+      if (firstAllowed) firstAllowed.click();
+    }
+  }
+}
+
+(async function initAuth() {
+  await ensureSuperAdmin();
+  renderAccessCheckboxes();
+  const raw = localStorage.getItem('session');
+  if (raw) {
+    try {
+      const session = JSON.parse(raw);
+      const config = getSupabaseConfig();
+      if (config) {
+        const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(session.username)}&select=*`);
+        const users = await res.json();
+        if (Array.isArray(users) && users.length > 0) {
+          const u = users[0];
+          session.access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
+          session.role = u.role;
+          localStorage.setItem('session', JSON.stringify(session));
+          applySession(session);
+          document.getElementById('loginOverlay').classList.add('hidden');
+          return;
+        }
       }
-      return '';
-    }).filter(Boolean).join('\n').slice(0, 200);
-  } catch(e) { return ''; }
-}
-
-function clearJiraTasks() {
-  const jiraTasks = data.tasks.filter(t => t.tags && t.tags.includes('jira'));
-  if (!jiraTasks.length) return alert('No Jira tasks to remove.');
-  if (!confirm(`Remove all ${jiraTasks.length} Jira tasks?`)) return;
-  jiraTasks.forEach(t => deleteTaskFromSB(t.id));
-  data.tasks = data.tasks.filter(t => !(t.tags && t.tags.includes('jira')));
-  saveLocal();
-  renderBoard();
-  document.getElementById('jira-status-msg').innerHTML = `🗑️ Removed ${jiraTasks.length} Jira tasks.`;
-  document.getElementById('jiraStatus').textContent = 'Not connected';
-}
-
-// Load Jira config on init
-(function initJira() {
-  const c = loadJiraConfig();
-  if (c) {
-    document.getElementById('jiraStatus').textContent = `🔗 ${c.project}`;
+    } catch(e) { localStorage.removeItem('session'); }
+  }
+  // Show login
+  if (getSupabaseConfig()) {
+    document.getElementById('loginMsg').textContent = 'Enter credentials to login';
+  } else {
+    document.getElementById('loginMsg').textContent = '⚠️ Connect Supabase first (⚡tab)';
+    document.getElementById('loginMsg').className = 'login-msg error';
   }
 })();
+
+function renderAccessCheckboxes() {
+  const container = document.getElementById('access-checkboxes');
+  if (!container) return;
+  container.innerHTML = ALL_PAGES.map(p =>
+    `<label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="checkbox" value="${p}" checked> ${p.charAt(0).toUpperCase() + p.slice(1)}
+    </label>`
+  ).join('');
+}
+
+async function createUser() {
+  const username = document.getElementById('new-user-name').value.trim();
+  const password = document.getElementById('new-user-pass').value.trim();
+  const msg = document.getElementById('admin-msg');
+  if (!username || !password) { msg.textContent = '❌ Username and password required'; return; }
+  const checked = document.querySelectorAll('#access-checkboxes input:checked');
+  const access = Array.from(checked).map(c => c.value);
+  if (!access.length) { msg.textContent = '❌ Select at least one access'; return; }
+
+  try {
+    await supabaseFetch('users', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ username, password, role: 'user', access: JSON.stringify(access) })
+    });
+    msg.textContent = `✅ User "${username}" created!`;
+    document.getElementById('new-user-name').value = '';
+    document.getElementById('new-user-pass').value = '';
+    renderUserList();
+  } catch(e) { msg.textContent = '❌ Error: ' + e.message; }
+}
+
+async function renderUserList() {
+  const container = document.getElementById('user-list');
+  if (!container) return;
+  try {
+    const res = await supabaseFetch('users?select=*&order=created_at.asc');
+    const users = await res.json();
+    if (!Array.isArray(users)) { container.innerHTML = '<p style="color:var(--text2);">No users found.</p>'; return; }
+    container.innerHTML = users.map(u => {
+      const access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
+      const isSuper = u.role === 'super-admin';
+      return `<div class="user-row">
+        <div class="user-info">
+          <div class="user-name">${u.username} <span class="${isSuper ? 'badge-admin' : 'badge-user'}">${isSuper ? 'Super Admin' : 'User'}</span></div>
+          <div class="access-chips">${access.map(a => `<span>${a}</span>`).join('')}</div>
+          <div class="user-meta">Created: ${new Date(u.created_at).toLocaleDateString()}</div>
+        </div>
+        ${isSuper ? '' : `<button class="btn btn-outline" style="padding:6px 14px;font-size:12px;border-color:var(--danger);color:var(--danger);" onclick="deleteUser('${u.username}')">🗑️</button>`}
+      </div>`;
+    }).join('');
+  } catch(e) { container.innerHTML = '<p style="color:var(--danger);">Error loading users.</p>'; }
+}
+
+async function deleteUser(username) {
+  if (!confirm(`Delete user "${username}"?`)) return;
+  try {
+    await supabaseFetch(`users?username=eq.${encodeURIComponent(username)}`, { method: 'DELETE' });
+    renderUserList();
+    document.getElementById('admin-msg').textContent = `🗑️ User "${username}" deleted`;
+  } catch(e) { alert('Error: ' + e.message); }
+}
 
 // ═══════════════════════════════════════════
 // UTILITY
