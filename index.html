@@ -832,7 +832,7 @@ CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (
     <label>Username</label>
     <input id="edit-user-name" readonly style="opacity:.6;">
     <label>Password</label>
-    <input id="edit-user-pass" type="password" placeholder="Leave empty to keep current">
+    <input id="edit-user-pass" placeholder="Leave empty to keep current">
     <label style="display:block;font-size:13px;color:var(--text2);margin-bottom:6px;">Access</label>
     <div id="edit-access-checkboxes" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
     <div class="btn-row">
@@ -1604,7 +1604,7 @@ async function openEditUser(username) {
     const u = users[0];
     const access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
     document.getElementById('edit-user-name').value = u.username;
-    document.getElementById('edit-user-pass').value = '';
+    document.getElementById('edit-user-pass').value = u.password;
     document.getElementById('edit-user-original').value = u.username;
     const container = document.getElementById('edit-access-checkboxes');
     container.innerHTML = ALL_PAGES.map(p =>
