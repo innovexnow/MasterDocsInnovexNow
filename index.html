@@ -233,6 +233,17 @@
   .rm-stat-card.gray .num { color: var(--text2); }
   .rm-stat-card.blue .num { color: var(--info); }
 
+  .aws-svc { background: var(--surface2); border-radius: 12px; border: 1px solid var(--border); padding: 20px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 16px; }
+  .aws-svc:hover { border-color: var(--primary); }
+  .aws-icon { font-size: 32px; width: 50px; text-align: center; flex-shrink: 0; }
+  .aws-body { flex: 1; }
+  .aws-body h4 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .aws-body p { font-size: 13px; color: var(--text2); margin: 4px 0 8px; }
+  .aws-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .aws-tags span { font-size: 10px; padding: 2px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); }
+  .aws-link { font-size: 12px; color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .aws-link:hover { text-decoration: underline; }
+
   .user-row {
     display: flex; align-items: center; gap: 12px; padding: 12px 16px;
     background: var(--surface2); border-radius: 8px; border: 1px solid var(--border);
@@ -303,6 +314,7 @@
     <div class="nav-item" data-page="apis"><span class="icon">🔌</span><span class="nav-text">APIs</span></div>
     <div class="nav-item" data-page="progress"><span class="icon">📊</span><span class="nav-text">Progress</span></div>
     <div class="nav-item" data-page="roadmap"><span class="icon">🗺️</span><span class="nav-text">App Roadmap</span></div>
+    <div class="nav-item" data-page="aws"><span class="icon">☁️</span><span class="nav-text">AWS Cloud</span></div>
     <div class="nav-item" data-page="supabase"><span class="icon">⚡</span><span class="nav-text">Supabase</span></div>
     <div class="nav-item" id="nav-admin" data-page="admin" style="display:none;"><span class="icon">👑</span><span class="nav-text">Admin</span></div>
     <div class="sidebar-footer">
@@ -788,6 +800,15 @@ CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- ═══════ AWS CLOUD ═══════ -->
+    <section class="page" id="page-aws">
+      <h2 class="page-title">☁️ AWS Cloud Infrastructure</h2>
+      <p class="page-sub" contenteditable="true">Region: ap-south-1 (Mumbai) · services used by RestroMind</p>
+
+      <div id="aws-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+      <div id="aws-container"></div>
     </section>
 
     <!-- ═══════ APP ROADMAP ═══════ -->
@@ -1685,6 +1706,45 @@ async function deleteUser(username) {
     document.getElementById('admin-msg').textContent = `🗑️ User "${username}" deleted`;
   } catch(e) { alert('Error: ' + e.message); }
 }
+
+// ═══════════════════════════════════════════
+// AWS CLOUD
+// ═══════════════════════════════════════════
+const AWS_SERVICES = [
+  { id: 's3', name: 'Amazon S3', icon: '🗄️', desc: 'Object storage for images, assets, and backups. Stores restaurant logos, dish images, and app static assets.', link: 'https://ap-south-1.console.aws.amazon.com/s3/home?region=ap-south-1', tags: ['Storage', 'Assets', 'Backups'] },
+  { id: 'ec2-1', name: 'Amazon EC2 (App Server)', icon: '🖥️', desc: 'Virtual server hosting the RestroMind backend APIs and admin dashboard.', link: 'https://ap-south-1.console.aws.amazon.com/ec2/home?region=ap-south-1', tags: ['Compute', 'Backend', 'API'] },
+  { id: 'ec2-2', name: 'Amazon EC2 (Database Server)', icon: '🖥️', desc: 'EC2 instance hosting the RDS proxy and migration services for database management.', link: 'https://ap-south-1.console.aws.amazon.com/ec2/home?region=ap-south-1', tags: ['Compute', 'Database', 'Migration'] },
+  { id: 'iam-1', name: 'AWS IAM (Users & Roles)', icon: '🔑', desc: 'Identity and access management — controls who can access AWS resources with specific permissions.', link: 'https://ap-south-1.console.aws.amazon.com/iam/home?region=ap-south-1', tags: ['Security', 'Access Control', 'Auth'] },
+  { id: 'iam-2', name: 'AWS IAM (Service Roles)', icon: '🔐', desc: 'Service roles for EC2, Lambda, and S3 to securely communicate with each other.', link: 'https://ap-south-1.console.aws.amazon.com/iam/home?region=ap-south-1', tags: ['Security', 'Service Roles', 'Permissions'] },
+  { id: 'aurora', name: 'Amazon Aurora (MySQL)', icon: '🗃️', desc: 'High-performance relational database for core RestroMind data — restaurants, menus, orders, customers.', link: 'https://ap-south-1.console.aws.amazon.com/rds/home?region=ap-south-1', tags: ['Database', 'MySQL', 'Production'] },
+  { id: 'rds', name: 'Amazon RDS (Read Replica)', icon: '📦', desc: 'RDS read replica for analytics queries, reporting, and reducing load on primary Aurora DB.', link: 'https://ap-south-1.console.aws.amazon.com/rds/home?region=ap-south-1', tags: ['Database', 'Replica', 'Analytics'] },
+  { id: 'dms-1', name: 'AWS DMS (Migration Task)', icon: '🔄', desc: 'Database Migration Service — migrates on-premise or existing DB to Aurora with minimal downtime.', link: 'https://ap-south-1.console.aws.amazon.com/dms/v2/home?region=ap-south-1', tags: ['Migration', 'Database', 'Tool'] },
+  { id: 'dms-2', name: 'AWS DMS (Replication Instance)', icon: '⚡', desc: 'DMS replication instance handling continuous data sync between source and target databases.', link: 'https://ap-south-1.console.aws.amazon.com/dms/v2/home?region=ap-south-1', tags: ['Migration', 'Replication', 'Sync'] },
+];
+
+function renderAWS() {
+  const container = document.getElementById('aws-container');
+  const stats = document.getElementById('aws-stats');
+  if (!container) return;
+  stats.innerHTML = `
+    <div class="rm-stat-card blue"><div class="num">${AWS_SERVICES.length}</div><div class="label">☁️ Total Services</div></div>
+    <div class="rm-stat-card green"><div class="num">ap-south-1</div><div class="label">📍 Region (Mumbai)</div></div>
+    <div class="rm-stat-card gray"><div class="num">${new Set(AWS_SERVICES.map(s => s.tags[0])).size}</div><div class="label">📂 Categories</div></div>
+  `;
+  container.innerHTML = AWS_SERVICES.map(s => `
+    <div class="aws-svc">
+      <div class="aws-icon">${s.icon}</div>
+      <div class="aws-body">
+        <h4>${s.name}</h4>
+        <p>${s.desc}</p>
+        <div class="aws-tags">${s.tags.map(t => `<span>${t}</span>`).join('')}</div>
+        <a class="aws-link" href="${s.link}" target="_blank">🔗 Open AWS Console →</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+renderAWS();
 
 // ═══════════════════════════════════════════
 // APP ROADMAP
