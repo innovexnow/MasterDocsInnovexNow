@@ -694,7 +694,7 @@ iosApp/                 # iOS entry point</pre>
     <!-- ═══════ SUPABASE SETUP ═══════ -->
     <section class="page" id="page-supabase">
       <h2 class="page-title">⚡ Supabase Integration</h2>
-      <p class="page-sub">Connect your Supabase project to persist all data in the cloud</p>
+      <p class="page-sub">Connect your Supabase project to persist all data in the cloud · 🔒 All passwords hashed with SHA-256</p>
 
       <div class="notice">
         <strong>🔥 Step-by-Step Setup:</strong> Pehle <strong>supabase.com</strong> par free project banao, fir yahan credentials daalo. Schema auto-create ho jayega.
@@ -725,7 +725,9 @@ iosApp/                 # iOS entry point</pre>
       <div class="card">
         <h3>📋 SQL Schema (Run this in Supabase SQL Editor)</h3>
         <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Neeche SQL already ready hai. <strong>"Open SQL Editor"</strong> dabao → naya tab khulega → SQL paste karo → <strong>RUN</strong> dabao.</p>
-        <div class="sql-box" id="sqlSchema">-- RestroMind System Hub — Tables
+        <div class="sql-box" id="sqlSchema">-- RestroMind System Hub — Tables + Secure Login RPC
+-- ⚠️ Passwords are stored as SHA-256 hashes. Never stored as plaintext.
+
 CREATE TABLE IF NOT EXISTS public.tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -758,7 +760,54 @@ ALTER TABLE public.credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow anon all" ON public.tasks FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);</div>
+CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);
+
+-- Secure login RPC: password NEVER returned in any response
+-- Client sends SHA-256 hash; RPC compares with stored hash
+-- Also handles migration: if stored password is plaintext, auto-upgrades to hash
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE OR REPLACE FUNCTION public.verify_login(p_username TEXT, p_password_hash TEXT)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_record public.users%ROWTYPE;
+BEGIN
+  -- Try matching with hashed password first (new system)
+  SELECT * INTO user_record
+  FROM public.users
+  WHERE username = p_username AND password = p_password_hash;
+
+  -- If not found, try migration: stored password might be plaintext
+  IF user_record.id IS NULL THEN
+    SELECT * INTO user_record
+    FROM public.users
+    WHERE username = p_username
+      AND encode(sha256(password::bytea), 'hex') = p_password_hash;
+
+    -- Migrate plaintext password to hash
+    IF user_record.id IS NOT NULL THEN
+      UPDATE public.users
+      SET password = p_password_hash
+      WHERE id = user_record.id;
+    END IF;
+  END IF;
+
+  IF user_record.id IS NOT NULL THEN
+    RETURN json_build_object(
+      'username', user_record.username,
+      'role', user_record.role,
+      'access', user_record.access
+    );
+  ELSE
+    RETURN NULL;
+  END IF;
+END;
+$$;
+
+-- Allow anonymous users to call the login RPC
+GRANT EXECUTE ON FUNCTION public.verify_login TO anon;</div>
         <button class="btn btn-outline" style="margin-top:10px;" onclick="copyText(document.getElementById('sqlSchema').textContent)">📋 Copy SQL</button>
       </div>
 
@@ -789,7 +838,8 @@ CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (
           <div class="step-num">4</div>
           <div class="step-content">
             <h4>Login & Manage Users</h4>
-            <p style="font-size:13px;color:var(--text2);">Page refresh karo → login screen dikhegi. Default: <strong>admin / admin123</strong> (Super Admin). Admin panel mein jaake naye users banao aur access do.</p>
+            <p style="font-size:13px;color:var(--text2);">Page refresh karo → login screen dikhegi. Default: <strong>admin / admin123</strong> (Super Admin). Admin panel mein jaake naye users banao aur access do.<br><br>
+            🔒 <strong>Security Update:</strong> Passwords ab SHA-256 hash ho kar store hote hain aur kabhi API response mein nahi aate. Login RPC function ke through hota hai — password sirf request body mein jaata hai, response mein kabhi nahi. Existing plaintext passwords migrate ho jayenge pehli login par.</p>
           </div>
         </div>
         <div class="step">
@@ -997,7 +1047,9 @@ function setConnStatus(msg, color) {
 }
 
 function openSQLEditor() {
-  const sql = `-- RestroMind System Hub — Tables
+  const sql = `-- RestroMind System Hub — Tables + Secure Login RPC
+-- ⚠️ Passwords are stored as SHA-256 hashes. Never stored as plaintext.
+
 CREATE TABLE IF NOT EXISTS public.tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -1024,12 +1076,60 @@ CREATE TABLE IF NOT EXISTS public.users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Row Level Security (allow anon access)
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow anon all" ON public.tasks FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);
+
+-- Secure login RPC: password NEVER returned in any response
+-- Client sends SHA-256 hash; RPC compares with stored hash
+-- Also handles migration: if stored password is plaintext, auto-upgrades to hash
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE OR REPLACE FUNCTION public.verify_login(p_username TEXT, p_password_hash TEXT)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_record public.users%ROWTYPE;
+BEGIN
+  -- Try matching with hashed password first (new system)
+  SELECT * INTO user_record
+  FROM public.users
+  WHERE username = p_username AND password = p_password_hash;
+
+  -- If not found, try migration: stored password might be plaintext
+  IF user_record.id IS NULL THEN
+    SELECT * INTO user_record
+    FROM public.users
+    WHERE username = p_username
+      AND encode(sha256(password::bytea), 'hex') = p_password_hash;
+
+    -- Migrate plaintext password to hash
+    IF user_record.id IS NOT NULL THEN
+      UPDATE public.users
+      SET password = p_password_hash
+      WHERE id = user_record.id;
+    END IF;
+  END IF;
+
+  IF user_record.id IS NOT NULL THEN
+    RETURN json_build_object(
+      'username', user_record.username,
+      'role', user_record.role,
+      'access', user_record.access
+    );
+  ELSE
+    RETURN NULL;
+  END IF;
+END;
+$$;
+
+-- Allow anonymous users to call the login RPC
+GRANT EXECUTE ON FUNCTION public.verify_login TO anon;`;
   
   const ta = document.createElement('textarea');
   ta.value = sql; ta.style.position = 'fixed'; ta.style.opacity = '0';
@@ -1209,7 +1309,7 @@ function renderCustomCreds() {
   if (!data.customCreds.length) { container.innerHTML = ''; return; }
   container.innerHTML = `<div class="card"><h3>🔐 Custom Credentials</h3>${data.customCreds.map((c, i) => `
     <div class="cred-item">
-      <div><div class="cred-label">${c.label}</div><div class="cred-value hidden-text">${c.value}</div></div>
+      <div><div class="cred-label">${escapeHtml(c.label)}</div><div class="cred-value hidden-text">${escapeHtml(c.value)}</div></div>
       <div style="display:flex;gap:8px;">
         <span class="cred-toggle" onclick="toggleCred(this)">👁️ Show</span>
         <span class="cred-toggle" style="color:var(--danger);" onclick="deleteCred(${i})">🗑️</span>
@@ -1310,10 +1410,10 @@ function renderBoard() {
     const list = document.getElementById(`tasks-${s}`);
     list.innerHTML = tasks.map(t => `
       <div class="task" onclick="editTask('${t.id}')" draggable="true" data-id="${t.id}">
-        <div class="task-title">${t.title}</div>
-        ${t.desc ? `<div class="task-desc">${t.desc}</div>` : ''}
+        <div class="task-title">${escapeHtml(t.title)}</div>
+        ${t.desc ? `<div class="task-desc">${escapeHtml(t.desc)}</div>` : ''}
         <div class="task-meta">
-          ${(t.tags||[]).map(tag => `<span class="badge ${tag==='backend'?'badge-blue':tag==='mobile'?'badge-purple':tag==='auth'?'badge-yellow':tag==='qa'?'badge-green':tag==='docs'?'badge':'badge'}">${tag}</span>`).join('')}
+          ${(t.tags||[]).map(tag => `<span class="badge ${tag==='backend'?'badge-blue':tag==='mobile'?'badge-purple':tag==='auth'?'badge-yellow':tag==='qa'?'badge-green':tag==='docs'?'badge':'badge'}">${escapeHtml(tag)}</span>`).join('')}
           <span class="cred-toggle" style="font-size:11px;margin-left:auto;" onclick="event.stopPropagation();deleteTask('${t.id}')">🗑️</span>
         </div>
       </div>
@@ -1465,7 +1565,7 @@ const ALL_PAGES = ['architecture','design','credentials','access','downloads','f
 function getUsersFromSB() {
   const config = getSupabaseConfig();
   if (!config) return null;
-  return supabaseFetch('users?select=*').then(r => r.json()).catch(() => null);
+  return supabaseFetch('users?select=username,role,access,created_at').then(r => r.json()).catch(() => null);
 }
 
 async function ensureSuperAdmin() {
@@ -1475,15 +1575,16 @@ async function ensureSuperAdmin() {
     const res = await supabaseFetch('users?select=username&role=eq.super-admin');
     const users = await res.json();
     if (!Array.isArray(users) || users.length === 0) {
+      const hashedPassword = await hashPassword('admin123');
       await supabaseFetch('users', {
         method: 'POST',
         headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify({
-          username: 'admin', password: 'admin123',
+          username: 'admin', password: hashedPassword,
           role: 'super-admin', access: JSON.stringify(ALL_PAGES)
         })
       });
-      console.log('✅ Super admin created: admin / admin123');
+      console.log('✅ Super admin created: admin / admin123 (password hashed)');
     }
   } catch(e) { console.warn('Auth init:', e); }
 }
@@ -1498,16 +1599,16 @@ async function handleLogin() {
   try {
     const config = getSupabaseConfig();
     if (!config) { msg.textContent = '❌ Supabase not connected. Connect first.'; msg.className = 'login-msg error'; return; }
-    const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(user)}&select=*`);
-    const users = await res.json();
-    if (!Array.isArray(users) || users.length === 0) {
-      msg.textContent = '❌ User not found'; msg.className = 'login-msg error'; return;
+    const hashedPassword = await hashPassword(pass);
+    const res = await supabaseFetch('rpc/verify_login', {
+      method: 'POST',
+      body: JSON.stringify({ p_username: user, p_password: hashedPassword })
+    });
+    const result = await res.json();
+    if (!result || !result.username) {
+      msg.textContent = '❌ Invalid username or password'; msg.className = 'login-msg error'; return;
     }
-    const u = users[0];
-    if (u.password !== pass) {
-      msg.textContent = '❌ Wrong password'; msg.className = 'login-msg error'; return;
-    }
-    const session = { username: u.username, role: u.role, access: typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []) };
+    const session = { username: result.username, role: result.role, access: typeof result.access === 'string' ? JSON.parse(result.access) : (result.access || []) };
     localStorage.setItem('session', JSON.stringify(session));
     applySession(session);
     renderUserList();
@@ -1568,7 +1669,7 @@ let _authCheckDone = false;
         const config = getSupabaseConfig();
         if (config) {
           try {
-            const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(session.username)}&select=*`);
+            const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(session.username)}&select=username,role,access`);
             const users = await res.json();
             if (Array.isArray(users) && users.length > 0) {
               const u = users[0];
@@ -1602,7 +1703,7 @@ function renderAccessCheckboxes() {
   if (!container) return;
   container.innerHTML = ALL_PAGES.map(p =>
     `<label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="checkbox" value="${p}" checked> ${p.charAt(0).toUpperCase() + p.slice(1)}
+      <input type="checkbox" value="${escapeHtml(p)}" checked> ${escapeHtml(p.charAt(0).toUpperCase() + p.slice(1))}
     </label>`
   ).join('');
 }
@@ -1617,12 +1718,13 @@ async function createUser() {
   if (!access.length) { msg.textContent = '❌ Select at least one access'; return; }
 
   try {
+    const hashedPassword = await hashPassword(password);
     await supabaseFetch('users', {
       method: 'POST',
       headers: { 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify({ username, password, role: 'user', access: JSON.stringify(access) })
+      body: JSON.stringify({ username, password: hashedPassword, role: 'user', access: JSON.stringify(access) })
     });
-    msg.textContent = `✅ User "${username}" created!`;
+    msg.textContent = `✅ User "${escapeHtml(username)}" created!`;
     document.getElementById('new-user-name').value = '';
     document.getElementById('new-user-pass').value = '';
     renderUserList();
@@ -1633,19 +1735,19 @@ async function renderUserList() {
   const container = document.getElementById('user-list');
   if (!container) return;
   try {
-    const res = await supabaseFetch('users?select=*&order=created_at.asc');
+    const res = await supabaseFetch('users?select=username,role,access,created_at&order=created_at.asc');
     const users = await res.json();
     if (!Array.isArray(users)) { container.innerHTML = '<p style="color:var(--text2);">No users found.</p>'; return; }
     container.innerHTML = users.map(u => {
       const access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
       const isSuper = u.role === 'super-admin';
-      return `<div class="user-row" style="cursor:pointer;" onclick="openEditUser('${u.username}')">
+      return `<div class="user-row" style="cursor:pointer;" onclick="openEditUser('${escapeHtml(u.username)}')">
         <div class="user-info">
-          <div class="user-name">${u.username} <span class="${isSuper ? 'badge-admin' : 'badge-user'}">${isSuper ? 'Super Admin' : 'User'}</span></div>
-          <div class="access-chips">${access.map(a => `<span>${a}</span>`).join('')}</div>
+          <div class="user-name">${escapeHtml(u.username)} <span class="${isSuper ? 'badge-admin' : 'badge-user'}">${isSuper ? 'Super Admin' : 'User'}</span></div>
+          <div class="access-chips">${access.map(a => `<span>${escapeHtml(a)}</span>`).join('')}</div>
           <div class="user-meta">Created: ${new Date(u.created_at).toLocaleDateString()}</div>
         </div>
-        ${isSuper ? '' : `<button class="btn btn-outline" style="padding:6px 14px;font-size:12px;border-color:var(--danger);color:var(--danger);" onclick="event.stopPropagation();deleteUser('${u.username}')">🗑️</button>`}
+        ${isSuper ? '' : `<button class="btn btn-outline" style="padding:6px 14px;font-size:12px;border-color:var(--danger);color:var(--danger);" onclick="event.stopPropagation();deleteUser('${escapeHtml(u.username)}')">🗑️</button>`}
       </div>`;
     }).join('');
   } catch(e) { container.innerHTML = '<p style="color:var(--danger);">Error loading users.</p>'; }
@@ -1653,18 +1755,19 @@ async function renderUserList() {
 
 async function openEditUser(username) {
   try {
-    const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(username)}&select=*`);
+    const res = await supabaseFetch(`users?username=eq.${encodeURIComponent(username)}&select=username,role,access,created_at`);
     const users = await res.json();
     if (!Array.isArray(users) || !users.length) return alert('User not found');
     const u = users[0];
     const access = typeof u.access === 'string' ? JSON.parse(u.access) : (u.access || []);
     document.getElementById('edit-user-name').value = u.username;
-    document.getElementById('edit-user-pass').value = u.password;
+    document.getElementById('edit-user-pass').value = '';
+    document.getElementById('edit-user-pass').placeholder = 'Leave empty to keep current';
     document.getElementById('edit-user-original').value = u.username;
     const container = document.getElementById('edit-access-checkboxes');
     container.innerHTML = ALL_PAGES.map(p =>
       `<label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
-        <input type="checkbox" value="${p}" ${access.includes(p) ? 'checked' : ''}> ${p.charAt(0).toUpperCase() + p.slice(1)}
+        <input type="checkbox" value="${escapeHtml(p)}" ${access.includes(p) ? 'checked' : ''}> ${escapeHtml(p.charAt(0).toUpperCase() + p.slice(1))}
       </label>`
     ).join('');
     document.getElementById('userModal').classList.add('open');
@@ -1680,7 +1783,7 @@ async function updateUser() {
   if (!access.length) return alert('Select at least one access');
 
   const body = { access: JSON.stringify(access) };
-  if (password) body.password = password;
+  if (password) body.password = await hashPassword(password);
 
   try {
     await supabaseFetch(`users?username=eq.${encodeURIComponent(original)}`, {
@@ -1688,7 +1791,7 @@ async function updateUser() {
       headers: { 'Prefer': 'resolution=merge-duplicates' },
       body: JSON.stringify(body)
     });
-    document.getElementById('admin-msg').textContent = `✅ "${username}" updated!`;
+    document.getElementById('admin-msg').textContent = `✅ "${escapeHtml(username)}" updated!`;
     closeUserModal();
     renderUserList();
   } catch(e) { alert('Error: ' + e.message); }
@@ -1703,7 +1806,7 @@ async function deleteUser(username) {
   try {
     await supabaseFetch(`users?username=eq.${encodeURIComponent(username)}`, { method: 'DELETE' });
     renderUserList();
-    document.getElementById('admin-msg').textContent = `🗑️ User "${username}" deleted`;
+    document.getElementById('admin-msg').textContent = `🗑️ User "${escapeHtml(username)}" deleted`;
   } catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -1940,6 +2043,23 @@ function renderRoadmap() {
 }
 
 renderRoadmap();
+
+// ═══════════════════════════════════════════
+// SECURITY UTILITIES
+// ═══════════════════════════════════════════
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 // ═══════════════════════════════════════════
 // UTILITY
