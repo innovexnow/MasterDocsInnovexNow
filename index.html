@@ -763,10 +763,10 @@ CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH C
 CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);
 
 -- Secure login RPC: password NEVER returned in any response
--- Client sends SHA-256 hash; RPC compares with stored hash
+-- Client sends SHA-256 hash; RPC compares with stored hash or migrates plaintext
 -- Also handles migration: if stored password is plaintext, auto-upgrades to hash
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE OR REPLACE FUNCTION public.verify_login(p_username TEXT, p_password_hash TEXT)
+CREATE OR REPLACE FUNCTION public.verify_login(p_username TEXT, p_password TEXT)
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -777,19 +777,19 @@ BEGIN
   -- Try matching with hashed password first (new system)
   SELECT * INTO user_record
   FROM public.users
-  WHERE username = p_username AND password = p_password_hash;
+  WHERE username = p_username AND password = p_password;
 
   -- If not found, try migration: stored password might be plaintext
   IF user_record.id IS NULL THEN
     SELECT * INTO user_record
     FROM public.users
     WHERE username = p_username
-      AND encode(sha256(password::bytea), 'hex') = p_password_hash;
+      AND encode(sha256(password::bytea), 'hex') = p_password;
 
     -- Migrate plaintext password to hash
     IF user_record.id IS NOT NULL THEN
       UPDATE public.users
-      SET password = p_password_hash
+      SET password = p_password
       WHERE id = user_record.id;
     END IF;
   END IF;
@@ -1085,10 +1085,10 @@ CREATE POLICY "Allow anon all" ON public.credentials FOR ALL USING (true) WITH C
 CREATE POLICY "Allow anon all" ON public.users FOR ALL USING (true) WITH CHECK (true);
 
 -- Secure login RPC: password NEVER returned in any response
--- Client sends SHA-256 hash; RPC compares with stored hash
+-- Client sends SHA-256 hash; RPC compares with stored hash or migrates plaintext
 -- Also handles migration: if stored password is plaintext, auto-upgrades to hash
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE OR REPLACE FUNCTION public.verify_login(p_username TEXT, p_password_hash TEXT)
+CREATE OR REPLACE FUNCTION public.verify_login(p_username TEXT, p_password TEXT)
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -1099,19 +1099,19 @@ BEGIN
   -- Try matching with hashed password first (new system)
   SELECT * INTO user_record
   FROM public.users
-  WHERE username = p_username AND password = p_password_hash;
+  WHERE username = p_username AND password = p_password;
 
   -- If not found, try migration: stored password might be plaintext
   IF user_record.id IS NULL THEN
     SELECT * INTO user_record
     FROM public.users
     WHERE username = p_username
-      AND encode(sha256(password::bytea), 'hex') = p_password_hash;
+      AND encode(sha256(password::bytea), 'hex') = p_password;
 
     -- Migrate plaintext password to hash
     IF user_record.id IS NOT NULL THEN
       UPDATE public.users
-      SET password = p_password_hash
+      SET password = p_password
       WHERE id = user_record.id;
     END IF;
   END IF;
