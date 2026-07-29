@@ -1,4 +1,33 @@
 {
-  "name": "restromind-system-hub",
-  "version": 2
+  "name": "restrodocs",
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/((?!assets/|legacy/|.*\\..*).*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/system-hub.html",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ]
 }
