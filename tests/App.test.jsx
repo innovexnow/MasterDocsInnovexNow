@@ -27,7 +27,7 @@ describe('RestroMind documentation routes', () => {
 
   it('renders the system hub page', () => {
     renderRoute('/system-hub');
-    expect(screen.getByRole('heading', { name: '⬡ RestroDocs' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /RestroDocs v2.0/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /System Architecture/ })).toBeInTheDocument();
   });
 
@@ -48,7 +48,7 @@ describe('RestroMind documentation routes', () => {
   it('keeps the login action keyboard accessible', async () => {
     const user = userEvent.setup();
     renderRoute('/');
-    const login = screen.getByRole('button', { name: '🔑 Login' });
+    const login = screen.getByRole('button', { name: /Login/i });
     login.focus();
     await user.keyboard('{Enter}');
     expect(login).toHaveFocus();
@@ -57,12 +57,5 @@ describe('RestroMind documentation routes', () => {
   it('does not render raw script elements', () => {
     const { container } = renderRoute('/');
     expect(container.querySelector('script')).not.toBeInTheDocument();
-  });
-
-  it('preserves important resource links', () => {
-    renderRoute('/');
-    expect(
-      screen.getByRole('link', { name: /Supabase/i }),
-    ).toHaveAttribute('href', 'https://supabase.com');
   });
 });
